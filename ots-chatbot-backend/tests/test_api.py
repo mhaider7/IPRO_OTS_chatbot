@@ -24,8 +24,8 @@ def test_health_and_frontend(client):
 def test_chat_contract_and_followup(client):
     history = [message("Wi-Fi won't connect")]
     result = client.post("/api/chat", json={"messages": history}).json()
-    assert set(result) == {"reply", "sources", "escalate", "escalation_reason"}
-    assert result["reply"].startswith("Test response:")
+    assert set(result) == {"reply", "sources", "escalate", "escalation_reason", "offer_options"}
+    assert result["offer_options"] is True
     assert result["sources"] == []  # Do not fabricate citations.
     assert result["escalate"] is False and result["escalation_reason"] is None
     history += [message(result["reply"], "bot"), message("It still does that on my phone")]
@@ -49,7 +49,7 @@ def test_account_problem_uses_context(client):
     assert result["escalation_reason"] == "fixed_topic"
 
 
-def test_escalation_clarifies_once_then_returns_copyable_email(client):
+def test_escalation_clarifies_once_then_returns_reviewable_email(client):
     history = []
     first = client.post("/api/escalate", json={"messages": history}).json()
     assert first["email"] is None and first["clarifying_question"]
@@ -60,6 +60,18 @@ def test_escalation_clarifies_once_then_returns_copyable_email(client):
     assert "Wi-Fi is broken" in result["email"]["body"]
     assert "[Your Student ID]" not in result["email"]["body"]
     assert client.post("/api/escalate", json={"messages": history}).json() == result
+
+
+def test_diagnosis_can_follow_a_bot_message(client):
+    result = client.post("/api/chat", json={"messages": [message("Wi-Fi won't connect"), message("Choose an option", "bot")], "mode": "diagnose"}).json()
+    assert "1. Check" in result["reply"] and "Wi-Fi" in result["reply"]
+    assert result["offer_options"]
+
+
+def test_diagnosis_does_not_bypass_fixed_topics(client):
+    result = client.post("/api/chat", json={"messages": [message("What is my ticket status?")], "mode": "diagnose"}).json()
+    assert result["escalation_reason"] == "fixed_topic"
+    assert "cannot" in result["reply"]
 
 
 def test_no_history_leaks_between_requests(client):
