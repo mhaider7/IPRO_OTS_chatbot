@@ -24,8 +24,8 @@ def test_health_and_frontend(client):
 def test_chat_contract_and_followup(client):
     history = [message("Wi-Fi won't connect")]
     result = client.post("/api/chat", json={"messages": history}).json()
-    assert set(result) == {"reply", "sources", "escalate", "escalation_reason"}
-    assert result["reply"].startswith("Test response:")
+    assert set(result) == {"reply", "sources", "escalate", "escalation_reason", "offer_options"}
+    assert result["offer_options"] is True
     assert result["sources"] == []  # Do not fabricate citations.
     assert result["escalate"] is False and result["escalation_reason"] is None
     history += [message(result["reply"], "bot"), message("It still does that on my phone")]
@@ -36,7 +36,7 @@ def test_chat_contract_and_followup(client):
 @pytest.mark.parametrize("text,reason", [
     ("What is my ticket status?", "fixed_topic"),
     ("I want to talk to a technician", "user_request"),
-    ("Can you predict the weather?", "low_confidence"),
+    ("My Bluetooth mouse is not working", "low_confidence"),
 ])
 def test_escalation_triggers(client, text, reason):
     result = client.post("/api/chat", json={"messages": [message(text)]}).json()
@@ -49,7 +49,7 @@ def test_account_problem_uses_context(client):
     assert result["escalation_reason"] == "fixed_topic"
 
 
-def test_escalation_clarifies_once_then_returns_copyable_email(client):
+def test_escalation_clarifies_once_then_returns_reviewable_email(client):
     history = []
     first = client.post("/api/escalate", json={"messages": history}).json()
     assert first["email"] is None and first["clarifying_question"]
@@ -62,10 +62,39 @@ def test_escalation_clarifies_once_then_returns_copyable_email(client):
     assert client.post("/api/escalate", json={"messages": history}).json() == result
 
 
+def test_diagnosis_can_follow_a_bot_message(client):
+    result = client.post("/api/chat", json={"messages": [message("Wi-Fi won't connect"), message("Choose an option", "bot")], "mode": "diagnose"}).json()
+    assert "1. Check" in result["reply"] and "Wi-Fi" in result["reply"]
+    assert result["offer_options"]
+
+
+def test_diagnosis_does_not_bypass_fixed_topics(client):
+    result = client.post("/api/chat", json={"messages": [message("What is my ticket status?")], "mode": "diagnose"}).json()
+    assert result["escalation_reason"] == "fixed_topic"
+    assert "cannot" in result["reply"]
+
+
 def test_no_history_leaks_between_requests(client):
     client.post("/api/chat", json={"messages": [message("Wi-Fi won't connect")]})
     result = client.post("/api/chat", json={"messages": [message("It still does that")]}).json()
-    assert result["escalation_reason"] == "low_confidence"
+    assert result["escalation_reason"] is None and not result["offer_options"]
+
+
+@pytest.mark.parametrize("text", ["How's the weather today?", "Can you predict the weather?", "Is it raining?", "Tell me a joke", "Give me a recipe", "What's the football score?", "hello", "What is a fingerprint?"])
+@pytest.mark.parametrize("mode", ["conversation", "diagnose"])
+def test_off_topic_never_offers_ots_email_or_diagnosis(client, text, mode):
+    # Check both a new conversation and a change of topic after an IT issue.
+    for history in ([], [message("I reset my password"), message("It still won't let me in")]):
+        result = client.post("/api/chat", json={"messages": history + [message(text)], "mode": mode}).json()
+        assert result["offer_options"] is False
+        assert result["escalate"] is False and result["escalation_reason"] is None
+        assert "OTS technology questions" in result["reply"]
+
+
+@pytest.mark.parametrize("text", ["My weather app won't load", "My Wi-Fi will not connect", "My Bluetooth mouse is not working", "My printer is broken"])
+def test_actual_technical_problems_remain_in_scope(client, text):
+    result = client.post("/api/chat", json={"messages": [message(text)]}).json()
+    assert result["offer_options"] is True
 
 
 def test_draft_uses_user_words_and_redacts_common_identifiers(client):

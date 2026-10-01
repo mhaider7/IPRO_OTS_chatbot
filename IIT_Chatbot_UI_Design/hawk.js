@@ -2,9 +2,9 @@
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  let history = [], escalating = false, busy = false, pending = null, controller = null, epoch = 0;
+  let history = [], escalating = false, mode = "conversation", busy = false, pending = null, controller = null, epoch = 0, mailSending = false;
   let draftNumber = 0;
-  const greeting = "Hi, I'm Hawk. Try a fictional IT issue to test our conversation flow. My replies are placeholders for now. I can also prepare an email draft for you to review and send.";
+  const greeting = "Hi, I'm Hawk. What technology problem are you having? Once you describe it, you can choose general troubleshooting or email OTS. Please do not share passwords, verification codes, or student IDs.";
 
   function message(role, text, sources = []) {
     const row = document.createElement("div");
@@ -32,18 +32,22 @@
   }
   function scroll() { $("messages").scrollTop = $("messages").scrollHeight; }
   function controls() {
-    for (const id of ["send", "message", "escalate"]) $(id).disabled = busy || pending !== null;
-    for (const chip of document.querySelectorAll("[data-question]")) chip.disabled = busy || pending !== null;
+    for (const id of ["send", "message", "choose-email", "choose-diagnose"]) $(id).disabled = busy || pending !== null || mailSending;
+    $("reset").disabled = mailSending;
+    for (const chip of document.querySelectorAll("[data-question]")) chip.disabled = busy || pending !== null || mailSending;
     $("retry").disabled = busy;
     $("status").textContent = busy ? "Hawk is responding…" : "";
   }
-  function emailCard(email) {
+  async function emailCard(email) {
+    const version = epoch;
+    // Only one active email draft per conversation; older drafts cannot be sent.
+    document.querySelectorAll(".email").forEach(card => card.remove());
     const card = document.createElement("section");
     card.className = "email";
     const heading = document.createElement("h3");
-    heading.textContent = "Your email draft";
+    heading.textContent = "Review your email to OTS";
     const note = document.createElement("p");
-    note.textContent = "Test template. Review and edit before sending. Hawk has not sent this email.";
+    note.textContent = "Check the details below. Hawk will send only this message and your reply address through the configured Microsoft 365 mailbox when you confirm.";
     const to = document.createElement("p");
     to.textContent = `To: ${email.to}`;
     const subject = document.createElement("p");
@@ -52,31 +56,74 @@
     const body = document.createElement("textarea");
     body.id = `email-body-${++draftNumber}`;
     body.value = email.body;
+    body.maxLength = 24000;
     label.htmlFor = body.id;
     label.textContent = "Review your message";
-    const copy = document.createElement("button");
-    copy.className = "copy";
-    copy.textContent = "Copy email";
+    const form = document.createElement("form");
+    const replyLabel = document.createElement("label");
+    const reply = document.createElement("input");
+    reply.id = `reply-address-${draftNumber}`; reply.type = "email"; reply.required = true; reply.maxLength = 254;
+    replyLabel.htmlFor = reply.id; replyLabel.textContent = "Your email address for OTS replies";
+    const confirmLabel = document.createElement("label");
+    const confirm = document.createElement("input");
+    confirm.type = "checkbox"; confirm.required = true;
+    confirmLabel.className = "confirm-send";
+    confirmLabel.append(confirm, document.createTextNode(" I reviewed this message and want Hawk to send it to OTS."));
+    const sendEmail = document.createElement("button");
+    sendEmail.className = "send-email"; sendEmail.type = "submit";
+    sendEmail.textContent = "Send email to OTS"; sendEmail.disabled = true;
     const status = document.createElement("span");
-    status.className = "copy-status";
+    status.className = "delivery-status";
     status.setAttribute("role", "status");
-    copy.addEventListener("click", async () => {
-      const text = `To: ${email.to}\nSubject: ${email.subject}\n\n${body.value}`;
+    let payload = null, available = false;
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (mailSending || !available || busy || pending || !form.reportValidity()) return;
+      if (!body.value.trim()) { status.textContent = "Please enter a message before sending."; return; }
+      payload ??= { request_id: crypto.randomUUID(), reply_to: reply.value.trim(), subject: email.subject, body: body.value.trim(), confirmed: true };
+      mailSending = true; controls(); sendEmail.disabled = true;
+      body.readOnly = true; reply.readOnly = true; confirm.disabled = true;
+      status.textContent = "Submitting to Microsoft 365…";
+      const abort = new AbortController();
+      const timer = setTimeout(() => abort.abort(), 25000);
       try {
-        await navigator.clipboard.writeText(text);
-        status.textContent = "Copied. Paste into your email app, review, and send.";
+        const response = await fetch("/api/email/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: abort.signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Email status could not be confirmed.");
+        if (data.status === "accepted") {
+          status.textContent = "Microsoft 365 accepted your email for sending. This does not confirm that OTS has received or read it.";
+          sendEmail.textContent = "Submitted to Microsoft 365"; available = false;
+        } else if (data.status === "failed") {
+          status.textContent = "Microsoft 365 did not accept this email. Check the sending account setup before trying a new attempt.";
+          payload = null; body.readOnly = false; reply.readOnly = false; confirm.disabled = false; confirm.checked = false;
+          sendEmail.textContent = "Send a new attempt";
+        } else if (data.status === "unknown") {
+          status.textContent = "Sending is in progress or the result is uncertain. Check the sending mailbox before making another attempt. Checking status will not send a duplicate.";
+          sendEmail.textContent = "Check this attempt's status";
+        } else throw new Error("Unexpected email status. Check this attempt before trying again.");
       } catch {
-        body.focus(); body.select();
-        status.textContent = "Clipboard unavailable. Copy the selected message and the To/Subject above manually.";
+        status.textContent = "Could not confirm the email status. Keep this page open and check this attempt again; the same request will not be sent twice.";
+        sendEmail.textContent = "Check this attempt's status";
+      } finally {
+        clearTimeout(timer); mailSending = false; controls(); sendEmail.disabled = !available;
       }
     });
-    card.append(heading, note, to, subject, label, body, copy, status);
+    form.append(label, body, replyLabel, reply, confirmLabel, sendEmail);
+    card.append(heading, note, to, subject, form, status);
     $("messages").append(card);
     scroll();
+    try {
+      const response = await fetch("/api/email/status");
+      const config = await response.json();
+      if (version !== epoch) return;
+      available = response.ok && config.available === true && config.recipient === email.to;
+      status.textContent = available ? "Microsoft 365 sending is configured. Review the message before sending." : "Microsoft 365 sending is not configured yet. You can prepare your email, but sending needs the team's approved account setup.";
+      sendEmail.disabled = !available;
+    } catch { status.textContent = "Cannot check the email configuration. Try preparing the email again when the server is available."; }
   }
   function validChat(data) {
     return typeof data.reply === "string" && Array.isArray(data.sources) && data.sources.every(s => typeof s === "string") &&
-      typeof data.escalate === "boolean" && (data.escalate ? ["fixed_topic", "low_confidence", "user_request"].includes(data.escalation_reason) : data.escalation_reason === null);
+      typeof data.offer_options === "boolean" && typeof data.escalate === "boolean" && (data.escalate ? ["fixed_topic", "low_confidence", "user_request"].includes(data.escalation_reason) : data.escalation_reason === null);
   }
   function validEscalation(data) {
     return (data.email === null && typeof data.clarifying_question === "string" && data.clarifying_question.length > 0) ||
@@ -91,7 +138,8 @@
     const timer = setTimeout(() => controller?.abort(), 15000);
     try {
       const path = pending;
-      const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: history }), signal: controller.signal });
+      const request = path === "/api/chat" ? { messages: history, mode } : { messages: history };
+      const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request), signal: controller.signal });
       const data = await response.json();
       if (version !== epoch) return;
       if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Hawk could not respond. Please try again.");
@@ -100,7 +148,7 @@
         history.push({ role: "bot", text: data.reply });
         message("bot", data.reply, data.sources);
         pending = null;
-        if (data.escalate) { escalating = true; pending = "/api/escalate"; }
+        $("options").hidden = !data.offer_options;
       } else {
         if (!validEscalation(data)) throw new Error("Hawk returned an unexpected draft. Please try again.");
         if (data.clarifying_question) {
@@ -124,10 +172,10 @@
   }
   function send(text) {
     text = text.trim();
-    if (!text || busy || pending) return;
+    if (!text || busy || pending || mailSending) return;
     // Leave room for the reply and an automatic escalation question.
     if (history.length >= 56 || history.reduce((n, m) => n + m.text.length, text.length) > 21000) {
-      $("error").textContent = "This conversation is full. Copy any draft you need, then start a new chat.";
+      $("error").textContent = "This conversation is full. Finish reviewing any email, then start a new chat.";
       $("error").hidden = false; return;
     }
     history.push({ role: "user", text });
@@ -137,10 +185,11 @@
     execute();
   }
   function reset() {
+    if (mailSending) return;
     epoch++; controller?.abort(); controller = null;
-    history = []; escalating = false; pending = null; busy = false;
+    history = []; escalating = false; mode = "conversation"; pending = null; busy = false;
     $("messages").replaceChildren(); $("message").value = "";
-    $("error").hidden = true; $("retry").hidden = true; $("chips").hidden = false;
+    $("error").hidden = true; $("retry").hidden = true; $("chips").hidden = false; $("options").hidden = true;
     message("bot", greeting); controls(); $("message").focus();
   }
   function open(value) {
@@ -153,7 +202,8 @@
   $("reset").addEventListener("click", reset);
   $("retry").addEventListener("click", execute);
   $("composer").addEventListener("submit", event => { event.preventDefault(); send($("message").value); });
-  $("escalate").addEventListener("click", () => { if (busy || pending) return; escalating = true; $("chips").hidden = true; pending = "/api/escalate"; execute(); });
+  $("choose-email").addEventListener("click", () => { if (busy || pending || mailSending) return; escalating = true; pending = "/api/escalate"; execute(); });
+  $("choose-diagnose").addEventListener("click", () => { if (busy || pending || mailSending) return; escalating = false; mode = "diagnose"; pending = "/api/chat"; execute(); });
   document.querySelectorAll("[data-question]").forEach(button => button.addEventListener("click", () => send(button.dataset.question)));
   document.addEventListener("keydown", event => { if (event.key === "Escape" && !$("chat").hidden) open(false); });
   reset();

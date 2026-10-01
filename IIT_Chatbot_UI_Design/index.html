@@ -12,11 +12,11 @@
   <main>
     <p class="eyebrow">Office of Technology Services</p>
     <h1>OTS support</h1>
-    <p class="intro">Start with Hawk for questions about campus technology. When you need more help, prepare an email to send to the Support Desk.</p>
-    <p class="demo-note"><strong>Team demonstration</strong> · Replies are test placeholders. Use fictional issues without names, email addresses, student IDs, passwords, or verification codes.</p>
+    <p class="intro">Describe your technology problem to Hawk, then choose troubleshooting steps or an email to the OTS Support Desk.</p>
+    <p class="demo-note"><strong>Development preview</strong> · Guidance uses general checks, not a verified OTS knowledge base. Keep passwords and student IDs out of chat. Email is sent only after you review and confirm it.</p>
     <div class="info-grid">
       <section><h2>Ask Hawk</h2><p>Try a question about Wi-Fi, printing, or account access.</p></section>
-      <section><h2>Prepare an email</h2><p>Review and copy a draft, then send it from your own email account.</p></section>
+      <section><h2>Choose your next step</h2><p>Work through general troubleshooting, or review and send an email to OTS from Hawk.</p></section>
       <section><h2>Your conversation</h2><p>Stays in this page's memory. A new conversation or page reload clears it.</p></section>
     </div>
   </main>
@@ -24,16 +24,20 @@
   <aside id="chat" aria-labelledby="chat-title" hidden>
     <header>
       <span class="avatar" aria-hidden="true">H</span>
-      <div class="identity"><h2 id="chat-title">Hawk</h2><span>OTS assistant · test mode</span></div>
+      <div class="identity"><h2 id="chat-title">Hawk</h2><span>OTS assistant · preview</span></div>
       <button id="reset" title="Clear this conversation">New chat</button>
       <button id="close" aria-label="Close Hawk">×</button>
     </header>
-    <div class="test-strip">Test responses · No email is sent by Hawk</div>
+    <div class="test-strip">General guidance · Review before sending email</div>
     <div id="messages" role="log" aria-live="polite" aria-label="Conversation"></div>
     <div id="chips" aria-label="Example questions">
       <button data-question="My Wi-Fi will not connect">Wi-Fi won't connect</button>
       <button data-question="How do I reset my password?">Reset my password</button>
       <button data-question="How can I print on campus?">Printing on campus</button>
+    </div>
+    <div id="options" aria-label="Choose how to continue" hidden>
+      <button id="choose-email" type="button">Email OTS</button>
+      <button id="choose-diagnose" type="button">Get troubleshooting steps</button>
     </div>
     <div id="status" role="status" aria-live="polite"></div>
     <div id="error" role="alert" hidden></div>
@@ -43,7 +47,7 @@
       <input id="message" maxlength="4000" autocomplete="off" placeholder="Describe your issue…" required>
       <button id="send" type="submit">Send</button>
     </form>
-    <footer><button id="escalate">Talk to a technician</button><span>Prepare an email draft</span></footer>
+    <footer><span>Choose the help that works for you.</span></footer>
   </aside>
 </body>
 </html>
