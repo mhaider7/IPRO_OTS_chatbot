@@ -28,6 +28,8 @@ The runnable frontend is `IIT_Chatbot_UI_Design/index.html`, `hawk.css`, and `ha
 
 The no-match fixture uses the contract's `low_confidence` reason to exercise that UI path; it is not a real model confidence assessment. Topic checks are example rules rather than a complete production classifier.
 
+The scope gate distinguishes unrecognized technical issues from unrelated questions. For example, "How's the weather today?" gets an OTS-scope reminder with `offer_options: false` and no escalation. "My weather app won't load" remains a technical issue. A change of topic does not inherit a previous account or Wi-Fi issue. These rules are conservative prototype routing, not a general-purpose language understanding model.
+
 ## API contract
 
 Chat and escalation accept `{ "messages": [{ "role": "user", "text": "My Wi-Fi fails" }] }`. Chat also accepts `mode: "conversation"` (default) or `mode: "diagnose"`. Normal chat must end with a user message; diagnosis may follow a bot reply because choosing a button adds no invented student text. The frontend stays on `/api/escalate` while collecting email clarification and allows switching back to diagnosis.

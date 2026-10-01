@@ -4,7 +4,7 @@ from typing import Protocol
 
 from api.schemas import ChatRequest, ChatResponse, Conversation, EscalationResponse
 from escalation.email_builder import build_test_email
-from escalation.topics import HUMAN_REQUEST, fixed_topic, topic_for
+from escalation.topics import HUMAN_REQUEST, fixed_topic, in_support_scope, topic_for
 
 
 class ChatService(Protocol):
@@ -16,6 +16,8 @@ class DemoService:
     def chat(self, request: ChatRequest) -> ChatResponse:
         users = [message.text for message in request.messages if message.role == "user"]
         latest = users[-1]
+        if not in_support_scope(latest, users):
+            return ChatResponse(reply="I can help with Illinois Tech OTS technology questions, such as Wi-Fi, account access, printing, and software. What campus technology issue can I help you with?", offer_options=False)
         reason = None
         if re.search(HUMAN_REQUEST, latest, re.I):
             reason = "user_request"

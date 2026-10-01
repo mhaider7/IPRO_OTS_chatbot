@@ -79,7 +79,11 @@ const path = require('node:path');
     assert.deepEqual(sends[1], sends[2]); // Retry uses the frozen payload and id.
 
     await page.locator('#reset').click();
-    await send('Can you predict the weather?');
+    await send("How's the weather today?");
+    assert.equal(await page.locator('#options').isVisible(), false);
+    assert.equal(await page.locator('.email').count(), 0);
+    assert.match(await page.locator('#messages').innerText(), /OTS technology questions/);
+    await send('My Bluetooth mouse is not working');
     await page.locator('#choose-diagnose').click(); await idle();
     assert.match(await page.locator('#messages').innerText(), /do not have verified self-service instructions/);
     await prepare();
@@ -100,6 +104,9 @@ const path = require('node:path');
     await page.unroute('**/api/chat');
     await page.locator('#close').click(); await page.locator('#launcher').click();
     assert.equal(await page.locator('.user').count(), 1);
+    await send('Is it raining?');
+    assert.equal(await page.locator('#options').isVisible(), false);
+    await send('My Wi-Fi will not connect');
 
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
