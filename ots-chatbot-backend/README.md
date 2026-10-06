@@ -59,7 +59,7 @@ Map frontend role `bot`/field `text` to Ollama role `assistant`/field `content` 
 
 ## Data handling
 
-Use fictional issues for development. Chat content stays in page/process memory and is not logged or persisted by Hawk. Closing the widget retains it; **New chat** or reload clears it. Email review intentionally collects a reply address. Confirming send shares that address and the reviewed body with Microsoft 365 and OTS. Microsoft retains sent mail according to the mailbox's policies. Hawk's SQLite delivery ledger stores only a random request ID, a payload hash, status, and timestamp, never email/body/address content. Keep the ledger to preserve duplicate-send protection across restarts.
+Use fictional issues for development. Chat content stays in this browser tab's `sessionStorage` and is not logged or persisted by the server. A reload keeps the conversation; closing the tab or **New chat** clears it. Email review intentionally collects a reply address. Confirming send shares that address and the reviewed body with Microsoft 365 and OTS. Microsoft retains sent mail according to the mailbox's policies. Hawk's SQLite delivery ledger stores only a random request ID, a payload hash, status, and timestamp, never email/body/address content. Keep the ledger to preserve duplicate-send protection across restarts.
 
 The template masks common email addresses, A-number student IDs, and explicitly labeled password/code fields if accidentally typed. This is a limited safeguard, not comprehensive personal-data detection. Use de-identified test conversations; real data and public deployment need further review.
 

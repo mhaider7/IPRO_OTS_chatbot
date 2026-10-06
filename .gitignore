@@ -11,3 +11,5 @@ sandbox/data/events.json
 node_modules/
 ots-chatbot-backend/.browser-output/
 ots-chatbot-backend/.runtime/
+ots-chatbot-backend/.chroma/
+.playwright-mcp/

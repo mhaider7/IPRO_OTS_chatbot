@@ -1,10 +1,34 @@
-/* Conversation state is volatile; no localStorage, cookies, or ticket API. */
+/* Conversation survives a reload via sessionStorage (this tab only); no localStorage, cookies, or server-side storage. */
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  let history = [], escalating = false, mode = "conversation", busy = false, pending = null, controller = null, epoch = 0, mailSending = false;
+  const STORAGE_KEY = "hawk-session";
+  let history = [], escalating = false, mode = "conversation", busy = false, pending = null, controller = null, epoch = 0, mailSending = false, completed = false;
   let draftNumber = 0;
   const greeting = "Hi, I'm Hawk. What technology problem are you having? Once you describe it, you can choose general troubleshooting or email OTS. Please do not share passwords, verification codes, or student IDs.";
+
+  function save() {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ history, escalating, mode, offerOptions: !$("options").hidden, completed }));
+    } catch { /* Private browsing or storage disabled; the conversation just will not survive a reload. */ }
+  }
+  function restore() {
+    let saved;
+    try { saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY)); } catch { return false; }
+    if (!saved || !Array.isArray(saved.history) || saved.history.length === 0) return false;
+    const validHistory = saved.history.every(m => m && (m.role === "user" || m.role === "bot") && typeof m.text === "string");
+    if (!validHistory || (saved.mode !== "conversation" && saved.mode !== "diagnose") || typeof saved.escalating !== "boolean" || typeof saved.completed !== "boolean") return false;
+    // A finished chat (advice given, or an email drafted) intentionally does not come back after a reload.
+    if (saved.completed) return false;
+    history = saved.history; escalating = saved.escalating; mode = saved.mode;
+    $("messages").replaceChildren();
+    message("bot", greeting);
+    for (const turn of history) message(turn.role, turn.text);
+    $("chips").hidden = true;
+    $("options").hidden = !saved.offerOptions;
+    controls();
+    return true;
+  }
 
   function message(role, text, sources = []) {
     const row = document.createElement("div");
@@ -149,12 +173,19 @@
         message("bot", data.reply, data.sources);
         pending = null;
         $("options").hidden = !data.offer_options;
+        if (mode === "diagnose") completed = true;
+        save();
       } else {
         if (!validEscalation(data)) throw new Error("Hawk returned an unexpected draft. Please try again.");
         if (data.clarifying_question) {
           history.push({ role: "bot", text: data.clarifying_question });
           message("bot", data.clarifying_question);
-        } else emailCard(data.email);
+          save();
+        } else {
+          completed = true;
+          save();
+          emailCard(data.email);
+        }
         pending = null;
       }
     } catch (error) {
@@ -180,6 +211,7 @@
     }
     history.push({ role: "user", text });
     message("user", text);
+    save();
     $("message").value = ""; $("chips").hidden = true;
     pending = escalating ? "/api/escalate" : "/api/chat";
     execute();
@@ -187,7 +219,8 @@
   function reset() {
     if (mailSending) return;
     epoch++; controller?.abort(); controller = null;
-    history = []; escalating = false; mode = "conversation"; pending = null; busy = false;
+    history = []; escalating = false; mode = "conversation"; pending = null; busy = false; completed = false;
+    try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* Nothing to clear if storage is unavailable. */ }
     $("messages").replaceChildren(); $("message").value = "";
     $("error").hidden = true; $("retry").hidden = true; $("chips").hidden = false; $("options").hidden = true;
     message("bot", greeting); controls(); $("message").focus();
@@ -206,5 +239,5 @@
   $("choose-diagnose").addEventListener("click", () => { if (busy || pending || mailSending) return; escalating = false; mode = "diagnose"; pending = "/api/chat"; execute(); });
   document.querySelectorAll("[data-question]").forEach(button => button.addEventListener("click", () => send(button.dataset.question)));
   document.addEventListener("keydown", event => { if (event.key === "Escape" && !$("chat").hidden) open(false); });
-  reset();
+  if (!restore()) reset();
 })();
