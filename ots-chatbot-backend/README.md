@@ -18,6 +18,31 @@ Open <http://127.0.0.1:8000/> for the connected Hawk demo and <http://127.0.0.1:
 
 The runnable frontend is `IIT_Chatbot_UI_Design/index.html`, `hawk.css`, and `hawk.js`. It adapts the existing OTS/Hawk design into ordinary browser code. The `.dc.html` file and its `support.js` runtime are preserved as the original design reference; open the server URL above to use the connected version.
 
+## Fine-tuned model (Ollama)
+
+Hawk's model is Satay's fine-tune of Llama 3.2 3B Instruct, run locally with [Ollama](https://ollama.com). The browser demo does not use it yet; `llm/ollama_client.py` does.
+
+1. Install Ollama from <https://ollama.com> (Windows or macOS), then check `ollama --version` in a new terminal.
+2. Download `Llama-3.2-3B-Instruct.Q4_K_M.gguf` from the SharePoint folder Satay shared (ask Satay or the team for access) into `ots-chatbot-backend/llm/`, next to the `Modelfile`. GGUF files are git-ignored; do not commit them.
+3. From the repository root, register the model (same command on Windows and macOS):
+
+   ```
+   ollama create hawk-campus-it -f ots-chatbot-backend/llm/Modelfile
+   ```
+
+4. Try it with the demo, which answers two Wi-Fi questions using `llm/system_prompt.txt` and the sample ChromaDB material:
+
+   ```
+   # Windows
+   .\.venv\Scripts\python.exe ots-chatbot-backend/llm/ollama_client.py
+   # macOS
+   .venv/bin/python ots-chatbot-backend/llm/ollama_client.py
+   ```
+
+   Or chat with the model directly using `ollama run hawk-campus-it` (type `/bye` to exit). This uses the Modelfile's own system prompt, not `system_prompt.txt`.
+
+If the demo fails with `PermissionError` mentioning `keylog_filename`, your terminal (VS Code's integrated terminal sets this) has an `SSLKEYLOGFILE` variable Python cannot write to. Clear it in that terminal and run the demo again: `Remove-Item Env:SSLKEYLOGFILE` in PowerShell, or `unset SSLKEYLOGFILE` on macOS. Running from a terminal outside VS Code also avoids it.
+
 ## Try the complete flow
 
 1. Click **Ask Hawk** and send **My Wi-Fi will not connect**. Two choices appear; no email is prepared or sent automatically.

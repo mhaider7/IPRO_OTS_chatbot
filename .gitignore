@@ -13,3 +13,4 @@ ots-chatbot-backend/.browser-output/
 ots-chatbot-backend/.runtime/
 ots-chatbot-backend/.chroma/
 .playwright-mcp/
+*.gguf
