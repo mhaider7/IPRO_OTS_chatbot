@@ -7,7 +7,8 @@ import httpx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "llama3.2:3b"
+# Satay's fine-tuned model, registered with: ollama create hawk-campus-it -f ots-chatbot-backend/llm/Modelfile
+MODEL = "hawk-campus-it"
 SYSTEM_PROMPT = (Path(__file__).resolve().parent / "system_prompt.txt").read_text().strip()
 # Ollama defaults to a much smaller window than the model supports. The schema's
 # 24,000-character conversation cap is ~6k tokens; this leaves headroom for the
