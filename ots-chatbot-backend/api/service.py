@@ -1,10 +1,13 @@
-"""Swap DemoService for the real retrieval/LLM coordinator at create_app()."""
+"""DemoService is the deterministic baseline the tests pin down; RagService is the
+real retrieval/LLM coordinator, selected instead at create_app() via HAWK_RAG_ENABLED."""
 import re
 from typing import Protocol
 
-from api.schemas import ChatRequest, ChatResponse, Conversation, EscalationResponse
+from api.schemas import ChatRequest, ChatResponse, Conversation, EscalationResponse, Message
 from escalation.email_builder import build_test_email
 from escalation.topics import HUMAN_REQUEST, fixed_topic, in_support_scope, topic_for
+from llm.ollama_client import generate_answer
+from retrieval.chroma_setup import retrieve
 
 
 class ChatService(Protocol):
@@ -40,6 +43,47 @@ class DemoService:
             if topic in steps:
                 return ChatResponse(reply=f"General troubleshooting for {topic} (not a verified OTS procedure):\n\n{steps[topic]}")
             return ChatResponse(reply="I do not have verified self-service instructions for this issue yet. Note the device, exact error, and what you have already tried. Do not share credentials or attempt account changes. You can add those details here or choose Email OTS.", escalate=True, escalation_reason=reason or "low_confidence")
+        if not topic:
+            return ChatResponse(reply="I need more detail to diagnose this issue. You can describe the device and error, choose general troubleshooting, or email OTS for help.", escalate=True, escalation_reason=reason or "low_confidence")
+        return ChatResponse(reply=f"I understand this concerns {topic}. How would you like to continue? I can help you work through general checks or prepare an email to OTS.", escalate=reason is not None, escalation_reason=reason)
+
+    def escalate(self, request: Conversation) -> EscalationResponse:
+        return build_test_email(request)
+
+
+def _history_excluding_latest_user(messages: list[Message]) -> list[dict]:
+    """Every turn except the most recent student message, which generate_answer takes separately."""
+    latest_index = max(i for i, message in enumerate(messages) if message.role == "user")
+    return [{"role": message.role, "text": message.text} for i, message in enumerate(messages) if i != latest_index]
+
+
+class RagService:
+    """Same scope/escalation gates as DemoService; diagnose-mode replies come from
+    ChromaDB retrieval and a local Ollama model instead of the canned steps dict."""
+
+    def chat(self, request: ChatRequest) -> ChatResponse:
+        users = [message.text for message in request.messages if message.role == "user"]
+        latest = users[-1]
+        if not in_support_scope(latest, users):
+            return ChatResponse(reply="I can help with Illinois Tech OTS technology questions, such as Wi-Fi, account access, printing, and software. What campus technology issue can I help you with?", offer_options=False)
+        reason = None
+        if re.search(HUMAN_REQUEST, latest, re.I):
+            reason = "user_request"
+        elif fixed_topic(latest, users):
+            reason = "fixed_topic"
+        if reason == "fixed_topic":
+            if request.mode == "diagnose":
+                return ChatResponse(reply="OTS must check this account-specific issue. Safe preparation steps:\n1. Note the exact error and when it started.\n2. List the standard steps you already tried.\n3. Keep passwords, verification codes, and student IDs out of chat.\nChoose Email OTS when you are ready; Hawk cannot reset your account or retrieve ticket records.", escalate=True, escalation_reason=reason)
+            return ChatResponse(reply="This needs OTS to check your account or records. I cannot look those up or change them. Choose Email OTS to explain the issue, or Get troubleshooting steps to check what you can do safely first.", escalate=True, escalation_reason=reason)
+        if request.mode == "diagnose":
+            chunks = retrieve(latest)
+            if not chunks:
+                return ChatResponse(reply="I do not have verified self-service instructions for this issue yet. Note the device, exact error, and what you have already tried. Do not share credentials or attempt account changes. You can add those details here or choose Email OTS.", escalate=True, escalation_reason=reason or "low_confidence")
+            answer = generate_answer(latest, chunks, _history_excluding_latest_user(request.messages))
+            return ChatResponse(reply=answer)
+        topic = topic_for(latest)
+        if not topic and re.search(r"\b(that|it|still|same|phone|tried)\b", latest, re.I):
+            topic = next((topic_for(text) for text in reversed(users[:-1]) if topic_for(text)), None)
         if not topic:
             return ChatResponse(reply="I need more detail to diagnose this issue. You can describe the device and error, choose general troubleshooting, or email OTS for help.", escalate=True, escalation_reason=reason or "low_confidence")
         return ChatResponse(reply=f"I understand this concerns {topic}. How would you like to continue? I can help you work through general checks or prepare an email to OTS.", escalate=reason is not None, escalation_reason=reason)

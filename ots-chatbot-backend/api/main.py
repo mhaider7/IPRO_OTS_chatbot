@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.schemas import ChatRequest, ChatResponse, Conversation, EscalationResponse, SendEmailRequest
-from api.service import ChatService, DemoService
+from api.service import ChatService, DemoService, RagService
 from escalation.delivery import DeliveryError, GraphDelivery, MailSettings
 
 logger = logging.getLogger("hawk")
@@ -80,4 +80,7 @@ def create_app(service: ChatService | None = None, delivery: GraphDelivery | Non
     return app
 
 
-app = create_app()
+# Off by default: RagService needs a running Ollama server with the fine-tuned
+# model registered (see ots-chatbot-backend/README.md). create_app() itself still
+# defaults to DemoService, so tests that call it directly are unaffected.
+app = create_app(RagService() if os.getenv("HAWK_RAG_ENABLED", "false").lower() == "true" else None)

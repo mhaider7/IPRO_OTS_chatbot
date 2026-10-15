@@ -76,7 +76,7 @@ The default UI calls the API on its own origin. For a separate local frontend, s
 ## Team integration points
 
 - **Part 4:** `api/main.py` owns routes and frontend serving; `api/schemas.py` owns request/response validation.
-- **Parts 2 and 3:** Replace `DemoService.chat()` via the `ChatService` interface in `api/service.py` with retrieval, grounded generation, and confidence decisions. `create_app(service=...)` accepts the replacement for integration and testing. Put real retrieval and LLM code in the guide's `retrieval/` and `llm/` directories when those parts are ready.
+- **Parts 2 and 3:** `api/service.py` now has two `ChatService` implementations: `DemoService` (deterministic, what the tests pin down) and `RagService` (answers diagnose-mode questions from ChromaDB retrieval and the local Ollama model, falling back to escalation when nothing relevant is retrieved). Set `HAWK_RAG_ENABLED=true` in `.env` to make the live app use `RagService` instead of the default — it still needs Ollama running with `hawk-campus-it` registered (see "Fine-tuned model (Ollama)" above). `create_app(service=...)` keeps accepting either one directly for testing.
 - **Part 5:** Replace `escalation/email_builder.py` through `ChatService.escalate()`. Preserve the exclusive email-or-question response shape. `escalation/topics.py` is the shared location for the current test rules.
 - **Part 6:** `tests/test_api.py` checks conversation contracts; `tests/test_delivery.py` mocks Microsoft Graph to check sending and deduplication; `tests/browser_options.cjs` exercises both UI paths without sending real mail.
 
