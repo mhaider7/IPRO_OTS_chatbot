@@ -159,7 +159,7 @@
     busy = true;
     $("error").hidden = true; $("retry").hidden = true; controls();
     controller = new AbortController();
-    const timer = setTimeout(() => controller?.abort(), 15000);
+    const timer = setTimeout(() => controller?.abort(), 60000);
     try {
       const path = pending;
       const request = path === "/api/chat" ? { messages: history, mode } : { messages: history };

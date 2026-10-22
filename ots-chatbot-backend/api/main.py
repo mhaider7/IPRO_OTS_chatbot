@@ -9,17 +9,26 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.schemas import ChatRequest, ChatResponse, Conversation, EscalationResponse, SendEmailRequest
-from api.service import ChatService, DemoService, RagService
+from api.service import ChatService, DemoService
 from escalation.delivery import DeliveryError, GraphDelivery, MailSettings
 
 logger = logging.getLogger("hawk")
 FRONTEND = Path(__file__).resolve().parents[2] / "IIT_Chatbot_UI_Design"
 
 
+def default_service() -> ChatService:
+    """HAWK_SERVICE=demo keeps the deterministic responses; rag (default) uses ChromaDB and Ollama."""
+    if os.getenv("HAWK_SERVICE", "rag").lower() == "demo":
+        return DemoService()
+    from api.rag_service import RagService
+
+    return RagService()
+
+
 def create_app(service: ChatService | None = None, delivery: GraphDelivery | None = None) -> FastAPI:
-    backend = service or DemoService()
+    backend = service or default_service()
     mail = delivery or GraphDelivery(MailSettings.from_env())
-    app = FastAPI(title="Hawk development API", version="0.1.0", description="Deterministic test responses; retrieval and Ollama are not connected.")
+    app = FastAPI(title="Hawk development API", version="0.2.0", description="OTS support chat: ChromaDB retrieval, local Ollama answers, and reviewed email to OTS.")
     origins = [value.strip() for value in os.getenv("HAWK_ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",") if value.strip()]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
 
@@ -80,7 +89,4 @@ def create_app(service: ChatService | None = None, delivery: GraphDelivery | Non
     return app
 
 
-# Off by default: RagService needs a running Ollama server with the fine-tuned
-# model registered (see ots-chatbot-backend/README.md). create_app() itself still
-# defaults to DemoService, so tests that call it directly are unaffected.
-app = create_app(RagService() if os.getenv("HAWK_RAG_ENABLED", "false").lower() == "true" else None)
+app = create_app()
