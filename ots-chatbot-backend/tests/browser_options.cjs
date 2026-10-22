@@ -115,7 +115,10 @@ const path = require('node:path');
       assert.equal(await page.locator('#choose-diagnose').isVisible(), true);
     }
     await page.screenshot({ path: path.join(screenshots, 'hawk-mobile.png') });
+    // An unfinished conversation survives a reload (sessionStorage); New chat clears it.
     await page.reload(); await page.locator('#launcher').click();
+    assert.equal(await page.locator('.user').count(), 3);
+    await page.locator('#reset').click();
     assert.equal(await page.locator('.user').count(), 0);
     assert.deepEqual(errors, []);
     console.log('PASS: options, diagnosis, account limits, switch to email, disabled configuration, confirmation, acceptance, uncertain status, idempotent retry, chat retry, mobile; no real mail sent.');

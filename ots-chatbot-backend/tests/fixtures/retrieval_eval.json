@@ -1,0 +1,139 @@
+{
+  "answerable": [
+    {
+      "question": "How do I connect to the campus Wi-Fi?",
+      "expect": "wireless|getting-connected"
+    },
+    {
+      "question": "My laptop won't connect to IIT-Secure",
+      "expect": "wireless|getting-connected"
+    },
+    {
+      "question": "How do I get guests on the wireless network for an event?",
+      "expect": "guest-wireless"
+    },
+    {
+      "question": "How do I reset or change my password?",
+      "expect": "password-management|university-account-log-in"
+    },
+    {
+      "question": "I'm not getting the Okta Verify push notification",
+      "expect": "okta-verify|multifactor"
+    },
+    {
+      "question": "How do I set up text message MFA?",
+      "expect": "sms|multifactor|activating"
+    },
+    {
+      "question": "How do I activate my new Illinois Tech account?",
+      "expect": "activating-your-account"
+    },
+    {
+      "question": "How do I install the Cisco AnyConnect VPN on Windows?",
+      "expect": "vpn-remote-access"
+    },
+    {
+      "question": "How do I connect to the VPN from my Mac?",
+      "expect": "vpn-remote-access"
+    },
+    {
+      "question": "The portal says requested resource was not found when I log in",
+      "expect": "faqs"
+    },
+    {
+      "question": "How do I clear my browser cache in Chrome?",
+      "expect": "faqs"
+    },
+    {
+      "question": "Where is the OTS support desk and what are its hours?",
+      "expect": "support-locations-and-hours|resources-current"
+    },
+    {
+      "question": "How do I use the Virtual Computer Lab?",
+      "expect": "virtual-computer-lab|vcl"
+    },
+    {
+      "question": "How do I report a phishing email?",
+      "expect": "phishing"
+    },
+    {
+      "question": "How do I sign in to Zoom with my Illinois Tech account?",
+      "expect": "zoom"
+    },
+    {
+      "question": "How do I move my files from Google Drive to OneDrive?",
+      "expect": "faqs|google-microsoft-365"
+    },
+    {
+      "question": "What computer specs should I buy as a student?",
+      "expect": "student-pcs-macs"
+    },
+    {
+      "question": "How do I plug into the wired ethernet network in my room?",
+      "expect": "wired-network"
+    },
+    {
+      "question": "My Wi-Fi will not connect",
+      "expect": "Wireless|wireless|getting-connected"
+    },
+    {
+      "question": "wifi not working",
+      "expect": "Wireless|wireless|getting-connected"
+    },
+    {
+      "question": "I can't get on the internet in my dorm",
+      "expect": "wireless|connectivity|getting-connected"
+    },
+    {
+      "question": "iphone wont connect to campus wifi",
+      "expect": "Wireless|wireless"
+    },
+    {
+      "question": "how do I connect my PS5 to the network",
+      "expect": "iit-iot|faqs"
+    },
+    {
+      "question": "I forgot my password",
+      "expect": "password"
+    },
+    {
+      "question": "can't log in to the portal",
+      "expect": "portal|faqs|resources-current"
+    },
+    {
+      "question": "okta not sending push",
+      "expect": "okta|multifactor"
+    },
+    {
+      "question": "vpn won't connect",
+      "expect": "vpn"
+    },
+    {
+      "question": "I got a suspicious email",
+      "expect": "phishing"
+    },
+    {
+      "question": "where is the help desk",
+      "expect": "support-locations|resources-current|equipment-rental"
+    },
+    {
+      "question": "how to access my student email",
+      "expect": "student-mail|google-microsoft-365|downloading"
+    },
+    {
+      "question": "how do I print on campus",
+      "expect": "resources-current|printing"
+    }
+  ],
+  "unanswerable": [
+    "What is the best pizza place near campus?",
+    "Can you help me with my calculus homework?",
+    "Who won the basketball game last night?",
+    "How do I apply for a parking permit?",
+    "when is spring break",
+    "how do I change my major",
+    "what's the weather",
+    "write me a poem",
+    "how do I get a student job"
+  ]
+}

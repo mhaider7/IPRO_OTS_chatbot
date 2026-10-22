@@ -1,6 +1,15 @@
 # Hawk API and connected demo
 
-Hawk now offers two paths after an issue is described: **Email OTS** or **Get troubleshooting steps**. Email is reviewed and explicitly submitted inside Hawk through Microsoft 365. This implements the October 1 change from copy/paste. Guidance is currently deterministic general troubleshooting; ChromaDB, verified OTS procedures, model confidence grading, and Ollama are not connected yet.
+Hawk offers two paths after an issue is described: **Email OTS** or **Get troubleshooting steps**. Email is reviewed and explicitly submitted inside Hawk through Microsoft 365. This implements the October 1 change from copy/paste.
+
+Answers come from a retrieval-augmented pipeline (`api/rag_service.py`):
+
+1. Fixed topics (ticket status, billing, holds, lockout after reset, lost MFA device, per-record lookups) and requests for a person skip search and go straight to the OTS options.
+2. ChromaDB returns the closest chunks from public OTS pages and step-by-step PDFs on iit.edu. Queries are expanded with campus terms ("wifi" also searches "wireless IIT-Secure"). Generic public IT tickets are used only when no OTS page matches. If nothing is close enough, Hawk escalates with `low_confidence` instead of generating.
+3. A local Ollama model answers from those chunks and recent history. A second call grades the answer `low`/`medium`/`high`; `low` escalates and hides the answer. Because a 3B model grades itself unreliably, `llm/confidence.py` also rejects any answer naming a link, number, code, or product that is not in the material, and keeps a `low` grade from hiding an answer that mostly repeats the material.
+4. Email drafts get a model-written subject and one-sentence summary, followed by the student's own messages quoted word for word, so the model cannot add details the student never gave. Short reports get one fixed clarifying question first. Identifiers are redacted and the student reviews the draft.
+
+If Ollama is not running, chat returns a friendly message with the email option, and email drafts fall back to the template. If the index has not been built, chat falls back to the deterministic demo responses. Set `HAWK_SERVICE=demo` to use the demo responses on purpose.
 
 ## Run locally
 
@@ -14,34 +23,23 @@ python -m venv .venv
 
 On macOS/Linux use `.venv/bin/python` in place of `.\.venv\Scripts\python.exe`.
 
+### Build the knowledge base and start the model
+
+These steps are needed once, and again whenever `data/ots_pages.txt` or the cleaning rules change:
+
+```powershell
+.\.venv\Scripts\python.exe ots-chatbot-backend/data/fetch_datasets.py   # downloads into data/raw/ (gitignored)
+.\.venv\Scripts\python.exe ots-chatbot-backend/data/clean.py            # writes data/processed/chunks.jsonl
+.\.venv\Scripts\python.exe ots-chatbot-backend/embeddings/build_index.py # rebuilds embeddings/chroma_db/ (about 1 minute)
+```
+
+Install [Ollama](https://ollama.com/download), then run `ollama pull llama3.2:3b` and leave Ollama running before starting the server. The model, URL, timeout, and retrieval cutoff are set with the `HAWK_*` variables in `.env.example`. A running server picks up a rebuilt index without restarting.
+
+Sources and licenses are listed in [`data/SOURCES.md`](data/SOURCES.md). Public ticket datasets are general IT guidance, not Illinois Tech procedures; the prompt tells the model to prefer OTS pages, and retrieval ranks them first.
+
 Open <http://127.0.0.1:8000/> for the connected Hawk demo and <http://127.0.0.1:8000/docs> for the API. The app serves its own frontend, so no frontend build or separate web server is required. Stop any other service using port 8000 first, or select another port.
 
 The runnable frontend is `IIT_Chatbot_UI_Design/index.html`, `hawk.css`, and `hawk.js`. It adapts the existing OTS/Hawk design into ordinary browser code. The `.dc.html` file and its `support.js` runtime are preserved as the original design reference; open the server URL above to use the connected version.
-
-## Fine-tuned model (Ollama)
-
-Hawk's model is Satay's fine-tune of Llama 3.2 3B Instruct, run locally with [Ollama](https://ollama.com). The browser demo does not use it yet; `llm/ollama_client.py` does.
-
-1. Install Ollama from <https://ollama.com> (Windows or macOS), then check `ollama --version` in a new terminal.
-2. Download `Llama-3.2-3B-Instruct.Q4_K_M.gguf` from the SharePoint folder Satay shared (ask Satay or the team for access) into `ots-chatbot-backend/llm/`, next to the `Modelfile`. GGUF files are git-ignored; do not commit them.
-3. From the repository root, register the model (same command on Windows and macOS):
-
-   ```
-   ollama create hawk-campus-it -f ots-chatbot-backend/llm/Modelfile
-   ```
-
-4. Try it with the demo, which answers two Wi-Fi questions using `llm/system_prompt.txt` and the sample ChromaDB material:
-
-   ```
-   # Windows
-   .\.venv\Scripts\python.exe ots-chatbot-backend/llm/ollama_client.py
-   # macOS
-   .venv/bin/python ots-chatbot-backend/llm/ollama_client.py
-   ```
-
-   Or chat with the model directly using `ollama run hawk-campus-it` (type `/bye` to exit). This uses the Modelfile's own system prompt, not `system_prompt.txt`.
-
-If the demo fails with `PermissionError` mentioning `keylog_filename`, your terminal (VS Code's integrated terminal sets this) has an `SSLKEYLOGFILE` variable Python cannot write to. Clear it in that terminal and run the demo again: `Remove-Item Env:SSLKEYLOGFILE` in PowerShell, or `unset SSLKEYLOGFILE` on macOS. Running from a terminal outside VS Code also avoids it.
 
 ## Try the complete flow
 
@@ -51,7 +49,7 @@ If the demo fails with `PermissionError` mentioning `keylog_filename`, your term
 4. With Microsoft 365 configured, check the confirmation box and choose **Send email to OTS**. Without configuration, the button is disabled with an explanation.
 5. Try **What is my ticket status?**. Self-service explains that only OTS can look up the record; choosing it never bypasses that restriction. Unrecognized issues also offer both choices without inventing a diagnosis.
 
-The no-match fixture uses the contract's `low_confidence` reason to exercise that UI path; it is not a real model confidence assessment. Topic checks are example rules rather than a complete production classifier.
+With `HAWK_SERVICE=demo`, the no-match fixture uses `low_confidence` to exercise that UI path without a model. Fixed-topic checks are keyword rules in `retrieval/topics.py`, not a complete classifier.
 
 The scope gate distinguishes unrecognized technical issues from unrelated questions. For example, "How's the weather today?" gets an OTS-scope reminder with `offer_options: false` and no escalation. "My weather app won't load" remains a technical issue. A change of topic does not inherit a previous account or Wi-Fi issue. These rules are conservative prototype routing, not a general-purpose language understanding model.
 
@@ -75,16 +73,20 @@ The default UI calls the API on its own origin. For a separate local frontend, s
 
 ## Team integration points
 
-- **Part 4:** `api/main.py` owns routes and frontend serving; `api/schemas.py` owns request/response validation.
-- **Parts 2 and 3:** `api/service.py` now has two `ChatService` implementations: `DemoService` (deterministic, what the tests pin down) and `RagService` (answers diagnose-mode questions from ChromaDB retrieval and the local Ollama model, falling back to escalation when nothing relevant is retrieved). Set `HAWK_RAG_ENABLED=true` in `.env` to make the live app use `RagService` instead of the default — it still needs Ollama running with `hawk-campus-it` registered (see "Fine-tuned model (Ollama)" above). `create_app(service=...)` keeps accepting either one directly for testing.
-- **Part 5:** Replace `escalation/email_builder.py` through `ChatService.escalate()`. Preserve the exclusive email-or-question response shape. `escalation/topics.py` is the shared location for the current test rules.
-- **Part 6:** `tests/test_api.py` checks conversation contracts; `tests/test_delivery.py` mocks Microsoft Graph to check sending and deduplication; `tests/browser_options.cjs` exercises both UI paths without sending real mail.
+| Part | Owner files | Interface other parts rely on |
+| --- | --- | --- |
+| 1. Knowledge & retrieval | `data/`, `embeddings/build_index.py`, `retrieval/retriever.py`, `retrieval/topics.py` | `retrieve(query, k=3) -> list[Chunk]`, `has_good_match(chunks)`, `is_fixed_topic(latest, history)` |
+| 2. Reasoning engine | `llm/ollama_client.py`, `llm/prompts.py`, `llm/memory.py`, `llm/confidence.py` | `chat(messages)`, `chat_json(messages, schema)`, `OllamaUnavailable`, `grade(question, chunks, answer)` |
+| 3. Escalation & email | `escalation/email_builder.py` | `draft_email(conversation, reason) -> EscalationResponse` |
+| 4. API & tests | `api/`, `tests/`, this README | `RagService` behind the `ChatService` protocol; `create_app(service=...)` |
 
-Map frontend role `bot`/field `text` to Ollama role `assistant`/field `content` inside the future model adapter. Keep the public API stable. A real model adapter must enforce its own request timeout; the browser already aborts after 15 seconds and provides retry. Real generation may require an agreed longer timeout or a streaming contract later.
+`escalation/topics.py` re-exports `retrieval/topics.py` for older imports. `RagService` takes its retriever and model functions as constructor arguments, so tests use fakes and need neither the index nor Ollama.
+
+Frontend role `bot`/field `text` maps to Ollama role `assistant`/field `content` in `llm/memory.py`. Each Ollama call has a 25-second timeout, and an answer makes two calls (answer and grade), so the browser waits up to 60 seconds before offering retry.
 
 ## Data handling
 
-Use fictional issues for development. Chat content stays in this browser tab's `sessionStorage` and is not logged or persisted by the server. A reload keeps the conversation; closing the tab or **New chat** clears it. Email review intentionally collects a reply address. Confirming send shares that address and the reviewed body with Microsoft 365 and OTS. Microsoft retains sent mail according to the mailbox's policies. Hawk's SQLite delivery ledger stores only a random request ID, a payload hash, status, and timestamp, never email/body/address content. Keep the ledger to preserve duplicate-send protection across restarts.
+Use fictional issues for development. Chat content stays in this browser tab's `sessionStorage` and is not logged or persisted by the server. A reload keeps the conversation; closing the tab or **New chat** clears it. Email review intentionally collects a reply address. Confirming send shares that address and the reviewed body with Microsoft 365 and OTS. Microsoft retains sent mail according to the mailbox's policies. Hawk's SQLite delivery ledger stores only a random request ID, a payload hash, status, and timestamp, never email/body/address content. Keep the ledger to preserve duplicate-send protection across restarts. In RAG mode, conversation text is sent only to the Ollama server at `HAWK_OLLAMA_URL` (local by default), with common identifiers masked before email drafting. Neither the prompts nor the model replies are logged.
 
 The template masks common email addresses, A-number student IDs, and explicitly labeled password/code fields if accidentally typed. This is a limited safeguard, not comprehensive personal-data detection. Use de-identified test conversations; real data and public deployment need further review.
 
@@ -93,6 +95,8 @@ The template masks common email addresses, A-number student IDs, and explicitly 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest ots-chatbot-backend/tests -q
 ```
+
+Unit tests use fake retrievers and models. `test_retrieval.py` also evaluates the real index against `tests/fixtures/retrieval_eval.json` when it has been built. With Ollama running, `pytest ots-chatbot-backend/tests -m ollama` runs a live end-to-end check.
 
 For browser checks, install Playwright in a local development environment, start the server, and run:
 
@@ -104,7 +108,7 @@ node ots-chatbot-backend/tests/browser_options.cjs
 
 If Microsoft Edge is already installed, set `$env:HAWK_BROWSER_CHANNEL='msedge'` to use it instead of downloading Chromium. `HAWK_BASE_URL` overrides the default server URL. Screenshots go into ignored `ots-chatbot-backend/.browser-output/`, or the directory set in `HAWK_SCREENSHOT_DIR`.
 
-The browser check covers both choices, general steps, account restrictions, review/confirmation, unavailable configuration, simulated provider acceptance and uncertain outcomes, same-ID retry, chat failure/retry, mobile widths, and clearing history on reload. Browser delivery responses and Python provider calls are mocked; these tests do not send real email.
+The browser check covers both choices, general steps, account restrictions, review/confirmation, unavailable configuration, simulated provider acceptance and uncertain outcomes, same-ID retry, chat failure/retry, mobile widths, keeping an unfinished chat across reload, and clearing it with New chat. Browser delivery responses and Python provider calls are mocked; these tests do not send real email.
 
 ## Microsoft 365 setup
 

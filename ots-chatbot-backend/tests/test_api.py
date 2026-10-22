@@ -7,7 +7,7 @@ from api.service import DemoService
 
 @pytest.fixture
 def client():
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(service=DemoService())) as client:
         yield client
 
 
