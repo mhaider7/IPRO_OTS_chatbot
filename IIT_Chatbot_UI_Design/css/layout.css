@@ -1,0 +1,85 @@
+/* App shell */
+body { background: var(--bg); }
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* Header */
+#top-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  height: 60px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; }
+
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  background: var(--crimson);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  flex-shrink: 0;
+}
+
+.brand-info { display: flex; flex-direction: column; gap: 1px; }
+.brand-name { font-size: 14px; font-weight: 600; line-height: 1; }
+.brand-sub  { font-size: 11px; color: var(--text-3); }
+
+#reset {
+  font-size: 13px;
+  color: var(--text-2);
+  background: none;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  transition: border-color .15s, color .15s;
+}
+#reset:hover { border-color: var(--text-3); color: var(--text); }
+
+/* Scrollable chat body */
+#chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px 8px;
+  scroll-behavior: smooth;
+}
+
+/* Input area */
+#input-wrap {
+  flex-shrink: 0;
+  padding: 8px 20px 16px;
+  background: var(--bg);
+}
+
+.input-note {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* Mobile */
+@media (max-width: 520px) {
+  #top-bar { padding: 0 14px; }
+  #chat-body, #input-wrap { padding-left: 14px; padding-right: 14px; }
+}

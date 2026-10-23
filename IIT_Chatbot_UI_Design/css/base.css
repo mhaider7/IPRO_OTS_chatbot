@@ -1,0 +1,35 @@
+/* Design tokens */
+:root {
+  --crimson:      #a6192e;
+  --crimson-dark: #8b1427;
+  --bg:           #f6f5f3;
+  --surface:      #ffffff;
+  --border:       #e5e3df;
+  --border-2:     #ccc9c3;
+  --text:         #1a1916;
+  --text-2:       #5a5751;
+  --text-3:       #8a857f;
+  --radius-sm:    6px;
+  --radius:       10px;
+  --error-bg:     #fdf2f4;
+  --error-border: #f0c4cb;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+}
+
+/* Reset */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible { outline: 2px solid var(--crimson); outline-offset: 2px; }
+
+/* Utility */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0;
+  margin: -1px; overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+}

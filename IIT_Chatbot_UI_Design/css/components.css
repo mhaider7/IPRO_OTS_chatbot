@@ -1,0 +1,246 @@
+/* ── Messages ───────────────────────────────────── */
+#messages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.message { display: flex; flex-direction: column; max-width: 82%; }
+.message.bot  { align-self: flex-start; }
+.message.user { align-self: flex-end; }
+
+.bubble {
+  padding: 11px 15px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bot .bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px var(--radius) var(--radius) var(--radius);
+  color: var(--text);
+}
+
+.user .bubble {
+  background: var(--crimson);
+  color: #fff;
+  border-radius: var(--radius) 4px var(--radius) var(--radius);
+}
+
+.source {
+  font-size: 12px;
+  color: var(--crimson);
+  padding-top: 4px;
+  overflow-wrap: anywhere;
+  display: block;
+}
+
+/* ── Chip suggestions ───────────────────────────── */
+#chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0 4px;
+}
+
+#chips button {
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-2);
+  transition: border-color .15s, color .15s;
+}
+#chips button:hover { border-color: var(--crimson); color: var(--crimson); }
+
+/* ── Options (Email OSL) ────────────────────────── */
+#options {
+  padding: 10px 0 4px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#choose-email {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  text-align: left;
+  min-width: 200px;
+  transition: border-color .15s;
+}
+#choose-email:hover { border-color: var(--crimson); }
+
+.opt-icon { font-size: 18px; }
+.opt-body { display: flex; flex-direction: column; gap: 1px; }
+.opt-body strong { font-size: 13px; }
+.opt-body small  { font-size: 11px; color: var(--text-3); }
+
+/* ── Email draft card ───────────────────────────── */
+.email-draft {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-top: 4px;
+  max-width: 100%;
+}
+
+.email-draft h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+
+.email-meta { margin-bottom: 10px; }
+.email-meta p { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+.email-meta span { color: var(--text); font-weight: 500; }
+
+.email-draft label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 4px;
+}
+
+.email-draft textarea {
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  padding: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.email-draft input[type="email"] {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.email-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-copy {
+  background: var(--crimson);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background .15s;
+}
+.btn-copy:hover { background: var(--crimson-dark); }
+
+.btn-mailto {
+  background: none;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  font-size: 13px;
+  color: var(--text-2);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: border-color .15s;
+}
+.btn-mailto:hover { border-color: var(--text-3); color: var(--text); }
+
+.email-note {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* ── Status / error / retry ─────────────────────── */
+#status {
+  font-size: 12.5px;
+  color: var(--text-3);
+  min-height: 18px;
+  padding-bottom: 4px;
+}
+
+#error {
+  font-size: 13px;
+  color: var(--crimson);
+  padding: 8px 12px;
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  line-height: 1.45;
+}
+
+#retry {
+  background: none;
+  border: 1px solid var(--crimson);
+  color: var(--crimson);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+/* ── Composer (input bar) ───────────────────────── */
+#composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  padding: 8px 8px 8px 14px;
+  transition: border-color .2s;
+}
+#composer:focus-within { border-color: var(--text-3); }
+
+#message {
+  flex: 1;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-size: 15px;
+  line-height: 1.5;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+#message:focus { outline: none; }
+#message::placeholder { color: var(--text-3); }
+
+#send {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--crimson);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  transition: background .15s;
+}
+#send:hover:not(:disabled) { background: var(--crimson-dark); }
+
+/* Mobile */
+@media (max-width: 520px) {
+  .message { max-width: 92%; }
+}

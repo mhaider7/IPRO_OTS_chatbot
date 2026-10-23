@@ -5,7 +5,7 @@
   const STORAGE_KEY = "hawk-session";
   let history = [], escalating = false, mode = "conversation", busy = false, pending = null, controller = null, epoch = 0, mailSending = false, completed = false;
   let draftNumber = 0;
-  const greeting = "Hi, I'm Hawk. What technology problem are you having? Once you describe it, you can choose general troubleshooting or email OTS. Please do not share passwords, verification codes, or student IDs.";
+  const greeting = "Hi, I'm Hawk — the OSL assistant. Ask me about student organizations, events, funding, space reservations, or any OSL policy. Please do not share passwords, verification codes, or student IDs.";
 
   function save() {
     try {
@@ -54,96 +54,83 @@
     $("messages").append(row);
     scroll();
   }
-  function scroll() { $("messages").scrollTop = $("messages").scrollHeight; }
+  function scroll() { const b = document.getElementById("chat-body"); if (b) b.scrollTop = b.scrollHeight; }
   function controls() {
-    for (const id of ["send", "message", "choose-email", "choose-diagnose"]) $(id).disabled = busy || pending !== null || mailSending;
+    for (const id of ["send", "message", "choose-email"]) { const el = $(id); if (el) el.disabled = busy || pending !== null || mailSending; }
     $("reset").disabled = mailSending;
     for (const chip of document.querySelectorAll("[data-question]")) chip.disabled = busy || pending !== null || mailSending;
     $("retry").disabled = busy;
-    $("status").textContent = busy ? "Hawk is responding…" : "";
+    $("status").textContent = busy ? "Hawk is thinking…" : "";
   }
-  async function emailCard(email) {
-    const version = epoch;
-    // Only one active email draft per conversation; older drafts cannot be sent.
-    document.querySelectorAll(".email").forEach(card => card.remove());
+  function emailCard(email) {
+    // Draft only — no sending. Show the draft for the student to copy or open in their mail app.
+    document.querySelectorAll(".email-draft").forEach(c => c.remove());
+
+    const n = ++draftNumber;
+    const bodyId = `email-body-${n}`;
+    const replyId = `reply-addr-${n}`;
+
     const card = document.createElement("section");
-    card.className = "email";
+    card.className = "email-draft";
+
     const heading = document.createElement("h3");
-    heading.textContent = "Review your email to OTS";
-    const note = document.createElement("p");
-    note.textContent = "Check the details below. Hawk will send only this message and your reply address through the configured Microsoft 365 mailbox when you confirm.";
-    const to = document.createElement("p");
-    to.textContent = `To: ${email.to}`;
-    const subject = document.createElement("p");
-    subject.textContent = `Subject: ${email.subject}`;
-    const label = document.createElement("label");
-    const body = document.createElement("textarea");
-    body.id = `email-body-${++draftNumber}`;
-    body.value = email.body;
-    body.maxLength = 24000;
-    label.htmlFor = body.id;
-    label.textContent = "Review your message";
-    const form = document.createElement("form");
+    heading.textContent = "Draft email to OSL";
+
+    const meta = document.createElement("div");
+    meta.className = "email-meta";
+    meta.innerHTML = `<p>To: <span>${email.to}</span></p><p>Subject: <span>${email.subject}</span></p>`;
+
+    const bodyLabel = document.createElement("label");
+    bodyLabel.htmlFor = bodyId;
+    bodyLabel.textContent = "Your message";
+    const bodyEl = document.createElement("textarea");
+    bodyEl.id = bodyId;
+    bodyEl.value = email.body;
+    bodyEl.maxLength = 24000;
+
     const replyLabel = document.createElement("label");
-    const reply = document.createElement("input");
-    reply.id = `reply-address-${draftNumber}`; reply.type = "email"; reply.required = true; reply.maxLength = 254;
-    replyLabel.htmlFor = reply.id; replyLabel.textContent = "Your email address for OTS replies";
-    const confirmLabel = document.createElement("label");
-    const confirm = document.createElement("input");
-    confirm.type = "checkbox"; confirm.required = true;
-    confirmLabel.className = "confirm-send";
-    confirmLabel.append(confirm, document.createTextNode(" I reviewed this message and want Hawk to send it to OTS."));
-    const sendEmail = document.createElement("button");
-    sendEmail.className = "send-email"; sendEmail.type = "submit";
-    sendEmail.textContent = "Send email to OTS"; sendEmail.disabled = true;
-    const status = document.createElement("span");
-    status.className = "delivery-status";
-    status.setAttribute("role", "status");
-    let payload = null, available = false;
-    form.addEventListener("submit", async event => {
-      event.preventDefault();
-      if (mailSending || !available || busy || pending || !form.reportValidity()) return;
-      if (!body.value.trim()) { status.textContent = "Please enter a message before sending."; return; }
-      payload ??= { request_id: crypto.randomUUID(), reply_to: reply.value.trim(), subject: email.subject, body: body.value.trim(), confirmed: true };
-      mailSending = true; controls(); sendEmail.disabled = true;
-      body.readOnly = true; reply.readOnly = true; confirm.disabled = true;
-      status.textContent = "Submitting to Microsoft 365…";
-      const abort = new AbortController();
-      const timer = setTimeout(() => abort.abort(), 25000);
-      try {
-        const response = await fetch("/api/email/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: abort.signal });
-        const data = await response.json();
-        if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : "Email status could not be confirmed.");
-        if (data.status === "accepted") {
-          status.textContent = "Microsoft 365 accepted your email for sending. This does not confirm that OTS has received or read it.";
-          sendEmail.textContent = "Submitted to Microsoft 365"; available = false;
-        } else if (data.status === "failed") {
-          status.textContent = "Microsoft 365 did not accept this email. Check the sending account setup before trying a new attempt.";
-          payload = null; body.readOnly = false; reply.readOnly = false; confirm.disabled = false; confirm.checked = false;
-          sendEmail.textContent = "Send a new attempt";
-        } else if (data.status === "unknown") {
-          status.textContent = "Sending is in progress or the result is uncertain. Check the sending mailbox before making another attempt. Checking status will not send a duplicate.";
-          sendEmail.textContent = "Check this attempt's status";
-        } else throw new Error("Unexpected email status. Check this attempt before trying again.");
-      } catch {
-        status.textContent = "Could not confirm the email status. Keep this page open and check this attempt again; the same request will not be sent twice.";
-        sendEmail.textContent = "Check this attempt's status";
-      } finally {
-        clearTimeout(timer); mailSending = false; controls(); sendEmail.disabled = !available;
-      }
+    replyLabel.htmlFor = replyId;
+    replyLabel.textContent = "Your reply-to address";
+    replyLabel.style.marginTop = "10px";
+    const replyEl = document.createElement("input");
+    replyEl.id = replyId;
+    replyEl.type = "email";
+    replyEl.placeholder = "you@hawk.iit.edu";
+    replyEl.maxLength = 254;
+
+    const actions = document.createElement("div");
+    actions.className = "email-actions";
+
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "btn-copy";
+    copyBtn.type = "button";
+    copyBtn.textContent = "Copy draft";
+    copyBtn.addEventListener("click", () => {
+      const text = `To: ${email.to}\nSubject: ${email.subject}\nReply-to: ${replyEl.value || "(add your address)"}\n\n${bodyEl.value}`;
+      navigator.clipboard.writeText(text).then(() => { copyBtn.textContent = "Copied!"; setTimeout(() => { copyBtn.textContent = "Copy draft"; }, 2000); });
     });
-    form.append(label, body, replyLabel, reply, confirmLabel, sendEmail);
-    card.append(heading, note, to, subject, form, status);
+
+    const mailtoLink = document.createElement("a");
+    mailtoLink.className = "btn-mailto";
+    mailtoLink.textContent = "Open in mail app";
+    mailtoLink.setAttribute("role", "button");
+    // Build mailto href dynamically on click so it picks up any body edits
+    mailtoLink.addEventListener("click", () => {
+      mailtoLink.href = `mailto:${email.to}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(bodyEl.value)}`;
+    });
+    mailtoLink.href = "#";
+    mailtoLink.target = "_blank";
+    mailtoLink.rel = "noopener noreferrer";
+
+    actions.append(copyBtn, mailtoLink);
+
+    const note = document.createElement("p");
+    note.className = "email-note";
+    note.textContent = "This is a draft — Hawk does not send email. Edit the message above, then copy it or open your mail app to send.";
+
+    card.append(heading, meta, bodyLabel, bodyEl, replyLabel, replyEl, actions, note);
     $("messages").append(card);
     scroll();
-    try {
-      const response = await fetch("/api/email/status");
-      const config = await response.json();
-      if (version !== epoch) return;
-      available = response.ok && config.available === true && config.recipient === email.to;
-      status.textContent = available ? "Microsoft 365 sending is configured. Review the message before sending." : "Microsoft 365 sending is not configured yet. You can prepare your email, but sending needs the team's approved account setup.";
-      sendEmail.disabled = !available;
-    } catch { status.textContent = "Cannot check the email configuration. Try preparing the email again when the server is available."; }
   }
   function validChat(data) {
     return typeof data.reply === "string" && Array.isArray(data.sources) && data.sources.every(s => typeof s === "string") &&
@@ -162,7 +149,7 @@
     const timer = setTimeout(() => controller?.abort(), 15000);
     try {
       const path = pending;
-      const request = path === "/api/chat" ? { messages: history, mode } : { messages: history };
+      const request = { messages: history };
       const response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request), signal: controller.signal });
       const data = await response.json();
       if (version !== epoch) return;
@@ -225,19 +212,19 @@
     $("error").hidden = true; $("retry").hidden = true; $("chips").hidden = false; $("options").hidden = true;
     message("bot", greeting); controls(); $("message").focus();
   }
-  function open(value) {
-    $("chat").hidden = !value; $("launcher").hidden = value;
-    $("launcher").setAttribute("aria-expanded", String(value));
-    (value ? $("message") : $("launcher")).focus();
-  }
-  $("launcher").addEventListener("click", () => open(true));
-  $("close").addEventListener("click", () => open(false));
+  // Chat is always full-page — open() is a no-op kept for restore() compatibility.
+  function open() { $("message").focus(); }
+
+  // Auto-resize textarea as the user types.
+  $("message").addEventListener("input", function () {
+    this.style.height = "auto";
+    this.style.height = Math.min(this.scrollHeight, 120) + "px";
+  });
+
   $("reset").addEventListener("click", reset);
   $("retry").addEventListener("click", execute);
   $("composer").addEventListener("submit", event => { event.preventDefault(); send($("message").value); });
   $("choose-email").addEventListener("click", () => { if (busy || pending || mailSending) return; escalating = true; pending = "/api/escalate"; execute(); });
-  $("choose-diagnose").addEventListener("click", () => { if (busy || pending || mailSending) return; escalating = false; mode = "diagnose"; pending = "/api/chat"; execute(); });
   document.querySelectorAll("[data-question]").forEach(button => button.addEventListener("click", () => send(button.dataset.question)));
-  document.addEventListener("keydown", event => { if (event.key === "Escape" && !$("chat").hidden) open(false); });
   if (!restore()) reset();
 })();
